@@ -1,6 +1,7 @@
 variable "region" {
-  type    = string
-  default = "us-east-1"
+  description = "Keep equal to bootstrap/ var.infra_region. The state backend stays in us-east-1 regardless (see versions.tf)."
+  type        = string
+  default     = "sa-east-1"
 }
 
 variable "project" {

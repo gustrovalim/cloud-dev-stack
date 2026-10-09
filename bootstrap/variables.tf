@@ -1,6 +1,13 @@
 variable "region" {
-  type    = string
-  default = "us-east-1"
+  description = "Region for the state bucket, OIDC provider and budget (kept stable: the state lives here)."
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "infra_region" {
+  description = "Region where infra/ runs. The deploy role's EC2 grant and the AMI parameter ARNs are scoped to it. Keep equal to infra/ var.region."
+  type        = string
+  default     = "sa-east-1"
 }
 
 variable "project" {

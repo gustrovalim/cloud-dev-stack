@@ -1,6 +1,6 @@
 # cloud-dev-stack
 
-A disposable, browser-accessible dev environment on AWS (us-east-1): code-server (VS Code) plus a
+A disposable, browser-accessible dev environment on AWS (sa-east-1, São Paulo): code-server (VS Code) plus a
 terminal, reachable only over your Tailscale tailnet. One click in the Actions tab creates it, one
 click destroys it. Your code lives in GitHub; nothing on the box is meant to persist.
 
@@ -16,6 +16,10 @@ scripts/     user-data.sh (boot script) and extensions.txt (code-server extensio
 ## 1. One-time setup
 
 ### 1a. Bootstrap (from your machine, with AWS admin credentials)
+
+The state bucket, OIDC provider and budget live in `us-east-1` (`region`); the dev box runs in
+`sa-east-1` (`infra_region`, which scopes the deploy role). The Terraform backend stays in
+`us-east-1` because that is where the bucket is.
 
 ```bash
 cd bootstrap
@@ -33,14 +37,14 @@ Bootstrap state stays local (gitignored). Keep a copy somewhere safe; it holds n
 ### 1b. The two secrets (SSM Parameter Store, created by hand, never in Terraform)
 
 ```bash
-aws ssm put-parameter --region us-east-1 --type SecureString \
+aws ssm put-parameter --region sa-east-1 --type SecureString \
   --name /devbox/code-server-password --value 'CHOOSE-A-LONG-PASSPHRASE'
 
-aws ssm put-parameter --region us-east-1 --type SecureString \
+aws ssm put-parameter --region sa-east-1 --type SecureString \
   --name /devbox/tailscale-authkey --value 'tskey-auth-XXXXXXXX'
 ```
 
-Both use the default `aws/ssm` KMS key. Use `--overwrite` to rotate. Tailscale auth keys expire
+The parameters live in `sa-east-1`, next to the instance (SSM is regional). Both use the default `aws/ssm` KMS key. Use `--overwrite` to rotate. Tailscale auth keys expire
 after at most 90 days, so you will need to create a new one and overwrite the parameter.
 
 ### 1c. Tailscale admin console
@@ -100,7 +104,7 @@ Run deploy workflows from `main` only (the deploy role rejects other refs).
 - Terminal: the integrated terminal in code-server, or a second path with Session Manager (needs
   the AWS CLI and session-manager-plugin, or the AWS console > EC2 > Connect > Session Manager):
   ```bash
-  aws ssm start-session --region us-east-1 --target <instance_id>
+  aws ssm start-session --region sa-east-1 --target <instance_id>
   ```
 - Boot log: `sudo tail -f /var/log/devbox-init.log` (over Session Manager).
 - The box has no inbound security-group rules and no SSH. The instance has a public IP only for
@@ -131,7 +135,7 @@ code-server pulls extensions from Open VSX, not the Microsoft Marketplace.
   }
   ```
   The plan role is identical except `sub` is `...@1411121301:pull_request` and it is read-only.
-- Broad grants that cannot be avoided: the deploy role has `ec2:*` limited to us-east-1, because
+- Broad grants that cannot be avoided: the deploy role has `ec2:*` limited to sa-east-1 (`infra_region`), because
   VPC/EC2 create and delete actions largely do not support resource-level restriction. IAM is
   limited to `devbox-*` roles/profiles, only the SSM core policy can be attached, and `PassRole`
   works only for EC2. The role cannot read the two secret parameters.
@@ -141,9 +145,9 @@ code-server pulls extensions from Open VSX, not the Microsoft Marketplace.
 - State contains no secrets, but user data (visible in state and the EC2 console) holds only
   parameter names, never values.
 
-## 5. Cost notes (us-east-1, approximate, check current pricing)
+## 5. Cost notes (sa-east-1, approximate, check current pricing)
 
-- t3.large on-demand is about $0.083/hour, so roughly $2/day if left running; 50 GB gp3 is about
+- t3.large on-demand in sa-east-1 is about $0.134/hour (AWS Pricing API, 2026-10), so roughly $3.2/day if left running (us-east-1 would be $0.083/hour, but adds ~140 ms of latency from Brazil); 50 GB gp3 is about
   $4/month while the instance exists (it goes away on destroy).
 - No NAT gateway and no load balancer. The public IPv4 address costs about $0.005/hour.
 - State bucket and the budget alert cost almost nothing (the first two budgets are free).

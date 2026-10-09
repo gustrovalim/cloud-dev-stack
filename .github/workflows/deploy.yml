@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: sa-east-1
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
   TF_VAR_tailnet_dns_name: ${{ vars.TAILNET_DNS_NAME }}

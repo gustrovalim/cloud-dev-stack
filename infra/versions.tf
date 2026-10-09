@@ -11,7 +11,7 @@ terraform {
   # Bucket is passed at init time (-backend-config="bucket=...") so it is not hardcoded here.
   backend "s3" {
     key          = "infra/terraform.tfstate"
-    region       = "us-east-1"
+    region       = "us-east-1" # where the state bucket lives; independent of var.region
     encrypt      = true
     use_lockfile = true # native S3 locking, no DynamoDB
   }

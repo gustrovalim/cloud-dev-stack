@@ -167,7 +167,7 @@ resource "aws_iam_role_policy" "deploy" {
         Action   = "ec2:*"
         Resource = "*"
         Condition = {
-          StringEquals = { "aws:RequestedRegion" = var.region }
+          StringEquals = { "aws:RequestedRegion" = var.infra_region }
         }
       },
       {
@@ -208,7 +208,7 @@ resource "aws_iam_role_policy" "deploy" {
         Sid      = "ResolveAmi"
         Effect   = "Allow"
         Action   = "ssm:GetParameter"
-        Resource = "arn:aws:ssm:${var.region}::parameter/aws/service/ami-amazon-linux-latest/*"
+        Resource = "arn:aws:ssm:${var.infra_region}::parameter/aws/service/ami-amazon-linux-latest/*"
       },
     ]
   })
@@ -255,7 +255,7 @@ resource "aws_iam_role_policy" "plan" {
         Sid      = "ResolveAmi"
         Effect   = "Allow"
         Action   = "ssm:GetParameter"
-        Resource = "arn:aws:ssm:${var.region}::parameter/aws/service/ami-amazon-linux-latest/*"
+        Resource = "arn:aws:ssm:${var.infra_region}::parameter/aws/service/ami-amazon-linux-latest/*"
       },
     ]
   })
