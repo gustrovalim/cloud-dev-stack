@@ -1,0 +1,94 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do with the dev environment"
+        type: choice
+        options: [apply, destroy]
+        default: apply
+  pull_request:
+    paths: [infra/**, scripts/**, .github/workflows/**]
+
+# One run at a time against the shared state. Never cancel a running apply/destroy halfway.
+concurrency:
+  group: devbox-state
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC token for AWS
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_tailnet_dns_name: ${{ vars.TAILNET_DNS_NAME }}
+
+defaults:
+  run:
+    working-directory: infra
+
+jobs:
+  plan:
+    # Same-repo PRs only. Fork PRs get no OIDC token from GitHub, so they could not run this anyway.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive ..
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }} # read-only role, trusted for pull_request tokens
+          aws-region: ${{ env.AWS_REGION }}
+      - run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: terraform validate
+      # -lock=false: the read-only role cannot write the lock object. Plan output is informational.
+      - run: terraform plan -lock=false
+
+  apply:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }} # trust policy only accepts main
+          aws-region: ${{ env.AWS_REGION }}
+      - run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: terraform apply -auto-approve -lock-timeout=5m
+      - name: Write access URL to job summary
+        run: |
+          {
+            echo "### Dev environment is up"
+            echo ""
+            echo "- URL (needs Tailscale on your device): $(terraform output -raw access_url)"
+            echo "- Terminal via Session Manager: \`$(terraform output -raw ssm_session_command)\`"
+            echo ""
+            echo "Give it 3-5 minutes after apply for the boot script to finish (log: /var/log/devbox-init.log)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  destroy:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      # Terraform saves state after each deleted resource, so re-running after a partial failure
+      # simply continues with what is left. A second attempt covers transient dependency errors.
+      - run: terraform destroy -auto-approve -lock-timeout=5m || (sleep 30 && terraform destroy -auto-approve -lock-timeout=5m)
+      - run: echo "### Dev environment destroyed" >> "$GITHUB_STEP_SUMMARY"

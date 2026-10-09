@@ -1,0 +1,7 @@
+# One extension ID per line (publisher.name). Blank lines and # comments are ignored.
+# code-server uses the Open VSX registry by default, not the Microsoft Marketplace, so some
+# extensions may be missing or older. A failed install is logged but does not stop boot.
+ms-python.python
+redhat.java
+redhat.vscode-yaml
+hashicorp.terraform
