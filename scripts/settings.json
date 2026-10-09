@@ -1,0 +1,9 @@
+{
+  "workbench.colorTheme": "Dracula",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "files.autoSave": "afterDelay",
+  "telemetry.telemetryLevel": "off"
+}

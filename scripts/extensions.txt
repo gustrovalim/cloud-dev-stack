@@ -5,3 +5,8 @@ ms-python.python
 redhat.java
 redhat.vscode-yaml
 hashicorp.terraform
+anthropic.claude-code
+dracula-theme.theme-dracula
+ms-azuretools.vscode-docker
+ms-python.black-formatter
+eamodio.gitlens

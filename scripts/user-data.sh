@@ -1,5 +1,5 @@
 # Boot script for the dev box (Amazon Linux 2023). Terraform prepends a shebang and exports:
-#   AWS_REGION CODE_SERVER_PASSWORD_PARAM TAILSCALE_AUTHKEY_PARAM TAILSCALE_HOSTNAME EXTENSIONS_B64
+#   AWS_REGION CODE_SERVER_PASSWORD_PARAM TAILSCALE_AUTHKEY_PARAM TAILSCALE_HOSTNAME EXTENSIONS_B64 SETTINGS_B64
 # Safe to re-run by hand over Session Manager:  sudo bash /var/lib/cloud/instance/scripts/part-001
 # Log: /var/log/devbox-init.log   (no `set -x` anywhere, so secrets never reach the log)
 set -euo pipefail
@@ -45,6 +45,14 @@ enabled=1
 gpgcheck=1
 gpgkey=https://cli.github.com/packages/githubcli-archive-keyring.asc
 REPO
+cat >/etc/yum.repos.d/claude-code.repo <<'REPO'
+[claude-code]
+name=Claude Code
+baseurl=https://downloads.claude.ai/claude-code/rpm/stable
+enabled=1
+gpgcheck=1
+gpgkey=https://downloads.claude.ai/keys/claude-code.asc
+REPO
 cat >/etc/yum.repos.d/tailscale.repo <<'REPO'
 [tailscale-stable]
 name=Tailscale stable
@@ -58,7 +66,7 @@ REPO
 
 # AL2023 keeps /usr/bin/python3 at 3.9 for system tools; we add a newer side-by-side python3.13.
 # AWS CLI v2 ships preinstalled on AL2023 ("awscli-2" if it ever goes missing).
-retry 3 dnf install -y git docker gh tailscale python3.13 python3.13-pip java-21-amazon-corretto-devel
+retry 3 dnf install -y git docker gh tailscale claude-code python3.13 python3.13-pip java-21-amazon-corretto-devel
 command -v aws >/dev/null || retry 3 dnf install -y awscli-2
 
 systemctl enable --now docker
@@ -91,6 +99,14 @@ unset CS_PASSWORD
 
 # Bound to localhost only: the sole way in is the Tailscale HTTPS proxy below.
 systemctl enable --now "code-server@$DEV_USER"
+
+# Default editor settings (theme, Black on save). Only written if missing, so edits you make
+# in the UI survive a manual re-run of this script.
+CS_SETTINGS="$DEV_HOME/.local/share/code-server/User/settings.json"
+if [ ! -f "$CS_SETTINGS" ]; then
+  sudo -H -u "$DEV_USER" mkdir -p "$(dirname "$CS_SETTINGS")"
+  echo "$SETTINGS_B64" | base64 -d | sudo -H -u "$DEV_USER" tee "$CS_SETTINGS" >/dev/null
+fi
 
 # Extensions are installed after the service is up; one failure does not stop the boot.
 echo "--- extensions"

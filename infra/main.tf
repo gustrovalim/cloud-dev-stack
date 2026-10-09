@@ -144,6 +144,7 @@ resource "aws_instance" "dev" {
     "export TAILSCALE_AUTHKEY_PARAM='${var.tailscale_authkey_param}'",
     "export TAILSCALE_HOSTNAME='${var.tailscale_hostname}'",
     "export EXTENSIONS_B64='${base64encode(file("${path.module}/../scripts/extensions.txt"))}'",
+    "export SETTINGS_B64='${base64encode(file("${path.module}/../scripts/settings.json"))}'",
     file("${path.module}/../scripts/user-data.sh"),
   ])
   user_data_replace_on_change = true
