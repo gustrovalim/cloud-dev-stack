@@ -4,6 +4,9 @@
 # Log: /var/log/devbox-init.log   (no `set -x` anywhere, so secrets never reach the log)
 set -euo pipefail
 
+# cloud-init runs user data with no HOME; the code-server installer needs it under `set -u`.
+export HOME="${HOME:-/root}"
+
 LOG=/var/log/devbox-init.log
 exec > >(tee -a "$LOG") 2>&1
 echo "=== devbox init started $(date -u +%FT%TZ) ==="
