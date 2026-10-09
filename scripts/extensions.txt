@@ -10,3 +10,4 @@ dracula-theme.theme-dracula
 ms-azuretools.vscode-docker
 ms-python.black-formatter
 eamodio.gitlens
+pkief.material-icon-theme

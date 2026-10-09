@@ -1,5 +1,6 @@
 {
   "workbench.colorTheme": "Dracula",
+  "workbench.iconTheme": "material-icon-theme",
   "editor.formatOnSave": true,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter"
